@@ -1,6 +1,6 @@
-function createElement(tag, props, ...children) {
+function createElement(type, props, ...children) {
     return {
-        tag,
+        type,
         props: {
             ...props,
             children
@@ -9,7 +9,7 @@ function createElement(tag, props, ...children) {
 }
 
 function render(element, container) {
-    const { tag, props } = element;
+    const { type, props } = element;
     const dom = document.createElement(tag);
     for (const key in props) {
         if (key === 'children') {

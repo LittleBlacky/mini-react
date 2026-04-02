@@ -20,9 +20,24 @@ function createTextElement(text) {
   };
 }
 
+function render(element, container) {
+  const dom =
+    element.type === "TEXT_ELEMENT"
+      ? document.createTextElement(element.nodeValue)
+      : document.createElement(element.type);
+  const isProperty = (key) => key !== "children";
+  Object.keys(element.props)
+    .filter(isProperty)
+    .forEach((name) => {
+      dom[name] = element.props[name];
+    });
+  element.props.children.forEach((child) => render(child, element));
+  container.appendChild(dom);
+}
+
 export const MiniReact = {
   createElement,
-  createTextElement,
+  render,
 };
 
 export default MiniReact;

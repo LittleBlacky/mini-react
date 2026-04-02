@@ -1,9 +1,11 @@
-import MiniReact from "./src/mini-react.js";
+import MiniReact from "./mini-react";
 
-const element = MiniReact.createElement(
-  "div",
-  {id: "foo"},
-  "Hello", // 故意传一个字符串
+const element = (
+  <div id="foo">
+    <h1>Hello Mini-React</h1>
+    <p>从图纸到实物的跨越！</p>
+  </div>
 );
 
-console.log(element);
+const container = document.getElementById("app");
+MiniReact.render(element, container);

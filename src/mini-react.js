@@ -1,11 +1,12 @@
+/** 1. 元素创建部分 (Virtual DOM) **/
 function createElement(type, props, ...children) {
   return {
     type,
     props: {
       ...props,
-      children: children.map((child) => {
-        return typeof child === "object" ? child : createTextElement(child);
-      }),
+      children: children.map((child) =>
+        typeof child === "object" ? child : createTextElement(child),
+      ),
     },
   };
 }
@@ -20,47 +21,87 @@ function createTextElement(text) {
   };
 }
 
-function render(element, container) {
+/** 2. DOM 节点创建辅助函数 **/
+function createDom(fiber) {
   const dom =
-    element.type === "TEXT_ELEMENT"
-      ? document.createTextNode(element.nodeValue)
-      : document.createElement(element.type);
+    fiber.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
+
   const isProperty = (key) => key !== "children";
-  Object.keys(element.props)
+  Object.keys(fiber.props)
     .filter(isProperty)
     .forEach((name) => {
-      dom[name] = element.props[name];
+      dom[name] = fiber.props[name];
     });
-  element.props.children.forEach((child) => render(child, dom));
-  container.appendChild(dom);
+
+  return dom;
 }
 
-let nextUnityOfWork = null;
+/** 3. Commit 阶段：一口气挂载到页面 **/
+function commitRoot() {
+  commitWork(wipRoot.child);
+  wipRoot = null;
+}
+
+function commitWork(fiber) {
+  if (!fiber) return;
+  const domParent = fiber.parent.dom;
+  if (fiber.dom != null) {
+    domParent.appendChild(fiber.dom);
+  }
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+
+/** 4. Render 阶段：Fiber 调度与处理 **/
+let nextUnitOfWork = null;
+let wipRoot = null;
+
+function render(element, container) {
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+  };
+  nextUnitOfWork = wipRoot;
+}
 
 function workLoop(deadline) {
   let shouldYield = false;
-  while (nextUnityOfWork && !shouldYield) {
-    nextUnityOfWork = performUnitOfWork(nextUnityOfWork);
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     shouldYield = deadline.timeRemaining() < 1;
   }
+
+  if (!nextUnitOfWork && wipRoot) {
+    commitRoot();
+  }
+
   requestIdleCallback(workLoop);
 }
 
 requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
+  // A. 创建 DOM 实物
   if (!fiber.dom) {
-    fiber.dom = createElement(fiber);
+    fiber.dom = createDom(fiber);
   }
-  const children = fiber.props.children;
+
+  // B. 构建子 Fiber 链表 (Reconcile)
+  const elements = fiber.props.children;
   let prevSibling = null;
-  children.forEach((child, index) => {
+
+  elements.forEach((element, index) => {
     const newFiber = {
-      type: child.type,
-      props: child.props,
+      type: element.type,
+      props: element.props,
       parent: fiber,
       dom: null,
     };
+
     if (index === 0) {
       fiber.child = newFiber;
     } else {
@@ -68,21 +109,15 @@ function performUnitOfWork(fiber) {
     }
     prevSibling = newFiber;
   });
-  if (fiber.child) {
-    return fiber.child;
-  }
+
+  // C. 返回下一个任务单元
+  if (fiber.child) return fiber.child;
   let nextFiber = fiber;
   while (nextFiber) {
-    if (nextFiber.sibling) {
-      return nextFiber.sibling;
-    }
+    if (nextFiber.sibling) return nextFiber.sibling;
     nextFiber = nextFiber.parent;
   }
 }
 
-export const MiniReact = {
-  createElement,
-  render,
-};
-
+const MiniReact = {createElement, render};
 export default MiniReact;

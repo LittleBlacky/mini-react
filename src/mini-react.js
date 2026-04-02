@@ -47,21 +47,32 @@ function commitRoot() {
 function commitWork(fiber) {
   if (!fiber) return;
 
-  // 1. 向上找有 DOM 的祖先
+  // 1. 找大房东 (Parent DOM)
   let domParentFiber = fiber.parent;
   while (!domParentFiber.dom) {
     domParentFiber = domParentFiber.parent;
   }
   const domParent = domParentFiber.dom;
 
-  // 2. 只有当前 Fiber 有 DOM 时才执行挂载
-  if (fiber.dom != null) {
+  // 2. 根据标记执行操作
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
     domParent.appendChild(fiber.dom);
+  } else if (fiber.effectTag === "DELETION") {
+    // 新建：删除
+    commitDeletion(fiber, domParent);
+    return; //删除后，它的子孙就不需要再处理了
   }
 
-  // 3. 继续递归
+  // 3. 继续施工
   commitWork(fiber.child);
   commitWork(fiber.sibling);
+}
+
+function commitDeletion(fiber, domParent) {
+  while (!fiber.dom) {
+    fiber = fiber.child;
+  }
+  domParent.removeDom(fiber.dom);
 }
 
 /** 4. Render 阶段：Fiber 调度与处理 **/

@@ -35,6 +35,19 @@ function render(element, container) {
   container.appendChild(dom);
 }
 
+let nextUnityOfWork = null;
+
+function workLoop(deadline) {
+  let shouldYield = false;
+  while (nextUnityOfWork && !shouldYield) {
+    nextUnityOfWork = performUnitOfWork(nextUnityOfWork);
+    shouldYield = deadline.timeRemaining() < 1;
+  }
+  requestIdleCallback(workLoop);
+}
+
+requestIdleCallback(workLoop);
+
 function performUnitOfWork(fiber) {
   if (!fiber.dom) {
     fiber.dom = createElement(fiber);

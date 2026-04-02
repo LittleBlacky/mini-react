@@ -46,10 +46,20 @@ function commitRoot() {
 
 function commitWork(fiber) {
   if (!fiber) return;
-  const domParent = fiber.parent.dom;
+
+  // 1. 向上找有 DOM 的祖先
+  let domParentFiber = fiber.parent;
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent;
+  }
+  const domParent = domParentFiber.dom;
+
+  // 2. 只有当前 Fiber 有 DOM 时才执行挂载
   if (fiber.dom != null) {
     domParent.appendChild(fiber.dom);
   }
+
+  // 3. 继续递归
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }

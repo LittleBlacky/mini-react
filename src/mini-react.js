@@ -23,7 +23,7 @@ function createTextElement(text) {
 function render(element, container) {
   const dom =
     element.type === "TEXT_ELEMENT"
-      ? document.createTextElement(element.nodeValue)
+      ? document.createTextNode(element.nodeValue)
       : document.createElement(element.type);
   const isProperty = (key) => key !== "children";
   Object.keys(element.props)
@@ -31,7 +31,7 @@ function render(element, container) {
     .forEach((name) => {
       dom[name] = element.props[name];
     });
-  element.props.children.forEach((child) => render(child, element));
+  element.props.children.forEach((child) => render(child, dom));
   container.appendChild(dom);
 }
 

@@ -27,14 +27,9 @@ function createDom(fiber) {
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
       : document.createElement(fiber.type);
-
-  const isProperty = (key) => key !== "children";
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach((name) => {
-      dom[name] = fiber.props[name];
-    });
-
+  // 利用 updateDom 初始化所有属性和事件
+  // 传入一个空对象 {} 作为 prevProps，这样 updateDom 会认为所有属性都是新的
+  updateDom(dom, {}, fiber.props);
   return dom;
 }
 

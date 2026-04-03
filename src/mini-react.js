@@ -229,7 +229,7 @@ function performUnitOfWork(fiber) {
   let oldFiber = fiber.alternate && fiber.alternate.child;
 
   // 3. 把新旧两份清单交给“对账中心”
-  reconcileChildren(fiber, elements, oldFiber);
+  reconcileChildren(fiber, elements);
 
   // --- C. 返回下一个任务单元 (维持原样) ---
   if (fiber.child) return fiber.child;

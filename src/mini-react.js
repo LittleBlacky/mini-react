@@ -78,7 +78,7 @@ function commitDeletion(fiber, domParent) {
   while (!fiber.dom) {
     fiber = fiber.child;
   }
-  domParent.removeDom(fiber.dom);
+  domParent.removeChild(fiber.dom);
 }
 
 const isEvent = (key) => key.startsWith("on");

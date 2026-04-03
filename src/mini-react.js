@@ -58,9 +58,11 @@ function commitWork(fiber) {
   if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
     domParent.appendChild(fiber.dom);
   } else if (fiber.effectTag === "DELETION") {
-    // 新建：删除
     commitDeletion(fiber, domParent);
     return; //删除后，它的子孙就不需要再处理了
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom !== null) {
+    // 这里的关键是传入：节点本身、旧属性、新属性
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
   }
 
   // 3. 继续施工
@@ -73,6 +75,48 @@ function commitDeletion(fiber, domParent) {
     fiber = fiber.child;
   }
   domParent.removeDom(fiber.dom);
+}
+
+const isEvent = (key) => key.startsWith("on");
+const isProperty = (key) => key !== "children" && !isEvent(key);
+// 判断属性是否新属性或发生了变化
+const isNew = (prev, next) => (key) => prev[key] !== next[key];
+// 判断属性是否在新的props中消失了
+const isGone = (prev, next) => (key) => key in prev && !(key in next);
+function updateDom(dom, prevProps, nextProps) {
+  // 1. 移除旧的或已更改的事件监听器
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.removeEventListener(eventType, prevProps[name]);
+    });
+
+  // 2. 移除旧属性
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach((name) => {
+      dom[name] = "";
+    });
+
+  // 3. 设置新属性或更新属性
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps)) // ✅ 这样写，filter 会自动把 key 传进去
+    .forEach((name) => {
+      dom[name] = nextProps[name];
+    });
+
+  // 4. 添加新的事件监听器
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps)(key))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.addEventListener(eventType, nextProps[name]);
+    });
 }
 
 /** 4. Render 阶段：Fiber 调度与处理 **/

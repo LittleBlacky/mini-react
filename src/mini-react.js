@@ -40,7 +40,11 @@ function createDom(fiber) {
 
 /** 3. Commit 阶段：一口气挂载到页面 **/
 function commitRoot() {
+  // 💡 重点：施工前，先把清单上该拆的全部拆掉
+  deletions.forEach(commitWork);
+
   commitWork(wipRoot.child);
+  currentRoot = wipRoot; // 别忘了更新“成品房”备忘录
   wipRoot = null;
 }
 
@@ -122,14 +126,17 @@ function updateDom(dom, prevProps, nextProps) {
 /** 4. Render 阶段：Fiber 调度与处理 **/
 let nextUnitOfWork = null;
 let wipRoot = null;
-
+let currentRoot = null; // 这是一个全局变量，存着上一次盖好的“成品房”
+let deletions = null; // 全局删除清单
 function render(element, container) {
   wipRoot = {
     dom: container,
     props: {
       children: [element],
     },
+    alternate: currentRoot,
   };
+  deletions = [];
   nextUnitOfWork = wipRoot;
 }
 
@@ -149,33 +156,70 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop);
 
+function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let prevSibling = null;
+  while (index < elements.length || oldFiber != null) {
+    const element = elements[index];
+    let newFiber = null;
+    const sameType = oldFiber && element && element.type == oldFiber.type;
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+      };
+    }
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      };
+    }
+
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+    prevSibling = newFiber;
+    index++;
+  }
+}
+
 function performUnitOfWork(fiber) {
-  // A. 创建 DOM 实物
+  // --- A. 创建 DOM 实物 (维持原样) ---
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
 
-  // B. 构建子 Fiber 链表 (Reconcile)
+  // --- B. 重构：从“只会盖新房”变成“先对账” ---
+  // 1. 获取新设计图：这次要渲染的孩子们
   const elements = fiber.props.children;
-  let prevSibling = null;
 
-  elements.forEach((element, index) => {
-    const newFiber = {
-      type: element.type,
-      props: element.props,
-      parent: fiber,
-      dom: null,
-    };
+  // 2. 获取旧清单：通过 alternate 找到“前世”的第一个孩子
+  // 如果这是第一次渲染，fiber.alternate 就是空的
+  let oldFiber = fiber.alternate && fiber.alternate.child;
 
-    if (index === 0) {
-      fiber.child = newFiber;
-    } else {
-      prevSibling.sibling = newFiber;
-    }
-    prevSibling = newFiber;
-  });
+  // 3. 把新旧两份清单交给“对账中心”
+  reconcileChildren(fiber, elements, oldFiber);
 
-  // C. 返回下一个任务单元
+  // --- C. 返回下一个任务单元 (维持原样) ---
   if (fiber.child) return fiber.child;
   let nextFiber = fiber;
   while (nextFiber) {

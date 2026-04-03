@@ -108,7 +108,7 @@ function updateDom(dom, prevProps, nextProps) {
   // 3. 设置新属性或更新属性
   Object.keys(nextProps)
     .filter(isProperty)
-    .filter(isNew(prevProps, nextProps)) // ✅ 这样写，filter 会自动把 key 传进去
+    .filter(isNew(prevProps, nextProps))
     .forEach((name) => {
       dom[name] = nextProps[name];
     });
@@ -116,7 +116,7 @@ function updateDom(dom, prevProps, nextProps) {
   // 4. 添加新的事件监听器
   Object.keys(nextProps)
     .filter(isEvent)
-    .filter(isNew(prevProps, nextProps)(key))
+    .filter(isNew(prevProps, nextProps))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
       dom.addEventListener(eventType, nextProps[name]);

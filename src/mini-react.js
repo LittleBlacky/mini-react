@@ -216,13 +216,58 @@ function updateHostComponent(fiber) {
   reconcileChildren(fiber, fiber.props.children);
 }
 
-function updateFunctionComponent(fiber) {
-  // 💡 执行函数，传入 props，拿到他想画的“草图”
-  // 注意：函数组件目前只支持返回一个根节点
-  const children = [fiber.type(fiber.props)];
+let wipFiber = null;
+let hookIndex = null;
 
-  // 拿到草图后，交给对账中心
+function updateFunctionComponent(fiber) {
+  wipFiber = fiber;
+  hookIndex = 0; // 每次执行函数前，指针归零
+  wipFiber.hooks = []; // 初始化当前 Fiber 的 hooks 仓库
+
+  // 执行函数，此时内部调用的 useState 就会按顺序访问 wipFiber.hooks
+  const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
+}
+
+function useState(initial) {
+  // 1. 找前世：看看旧 Fiber 的相同位置有没有存过 hook
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
+  // 2. 初始化或复用状态
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: oldHook ? oldHook.queue : [], // 存放 setState 传进来的动作
+  };
+  // 3. 执行更新队列（处理之前的 setState）
+  const actions = hook.queue;
+  actions.forEach((action) => {
+    // 如果 action 是函数则执行，否则直接覆盖
+    hook.state = typeof action === "function" ? action(hook.state) : action;
+  });
+  // 💡 重要：执行完后清空当前 hook 的队列，防止下次重复计算
+  hook.queue = [];
+
+  const setState = (action) => {
+    // 💡 重点：把更新动作存入当前 hook 的队列中
+    hook.queue.push(action);
+
+    // 💡 重点：把 wipRoot 指向当前的根节点，重新启动调度！
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    };
+    nextUnitOfWork = wipRoot;
+    deletions = [];
+  };
+
+  // 4. 将本次 hook 存入当前 Fiber 的仓库，并移动指针
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+
+  return [hook.state, setState];
 }
 
 function performUnitOfWork(fiber) {
@@ -246,5 +291,5 @@ function performUnitOfWork(fiber) {
   }
 }
 
-const MiniReact = {createElement, render};
+const MiniReact = {createElement, render, useState};
 export default MiniReact;

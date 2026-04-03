@@ -224,11 +224,7 @@ function performUnitOfWork(fiber) {
   // 1. 获取新设计图：这次要渲染的孩子们
   const elements = fiber.props.children;
 
-  // 2. 获取旧清单：通过 alternate 找到“前世”的第一个孩子
-  // 如果这是第一次渲染，fiber.alternate 就是空的
-  let oldFiber = fiber.alternate && fiber.alternate.child;
-
-  // 3. 把新旧两份清单交给“对账中心”
+  // 2. 把新旧两份清单交给“对账中心”
   reconcileChildren(fiber, elements);
 
   // --- C. 返回下一个任务单元 (维持原样) ---

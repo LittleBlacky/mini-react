@@ -214,20 +214,35 @@ function reconcileChildren(wipFiber, elements) {
   });
 }
 
-function performUnitOfWork(fiber) {
-  // --- A. 创建 DOM 实物 (维持原样) ---
+function updateHostComponent(fiber) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
+  reconcileChildren(fiber, fiber.props.children);
+}
 
-  // --- B. 重构：从“只会盖新房”变成“先对账” ---
-  // 1. 获取新设计图：这次要渲染的孩子们
-  const elements = fiber.props.children;
+function updateFunctionComponent(fiber) {
+  // 💡 执行函数，传入 props，拿到他想画的“草图”
+  // 注意：函数组件目前只支持返回一个根节点
+  const children = [fiber.type(fiber.props)];
 
-  // 2. 把新旧两份清单交给“对账中心”
-  reconcileChildren(fiber, elements);
+  // 拿到草图后，交给对账中心
+  reconcileChildren(fiber, children);
+}
 
-  // --- C. 返回下一个任务单元 (维持原样) ---
+function performUnitOfWork(fiber) {
+  // 💡 第一步：判断他是“标准砖块”还是“设计师”
+  const isFunctionComponent = fiber.type instanceof Function;
+
+  if (isFunctionComponent) {
+    // 模式 A：请设计师出方案
+    updateFunctionComponent(fiber);
+  } else {
+    // 模式 B：搬运标准砖块（你之前的逻辑）
+    updateHostComponent(fiber);
+  }
+
+  // --- 寻找下一个任务单元的逻辑（维持原样） ---
   if (fiber.child) return fiber.child;
   let nextFiber = fiber;
   while (nextFiber) {

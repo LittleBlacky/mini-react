@@ -160,8 +160,11 @@ function reconcileChildren(wipFiber, elements) {
   const oldFiberMap = new Map();
   let tempOld = oldFiber;
   while (tempOld) {
-    // 如果没有 key，就用 index 当 key (兜底方案)
-    const key = tempOld.props.key || tempOld.index;
+    // 💡 确保这里能取到值，如果 props.key 没有，就用它真实的 index
+    const key =
+      (tempOld.props && tempOld.props.key) != null
+        ? tempOld.props.key
+        : tempOld.index;
     oldFiberMap.set(key, tempOld);
     tempOld = tempOld.sibling;
   }
@@ -181,6 +184,7 @@ function reconcileChildren(wipFiber, elements) {
         parent: wipFiber,
         alternate: matchedOldFiber,
         effectTag: "UPDATE",
+        index: index,
       };
       oldFiberMap.delete(key);
     } else {
@@ -192,6 +196,7 @@ function reconcileChildren(wipFiber, elements) {
           parent: wipFiber,
           alternate: null,
           effectTag: "PLACEMENT",
+          index: index,
         };
       }
     }

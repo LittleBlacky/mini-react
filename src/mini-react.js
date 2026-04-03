@@ -160,37 +160,45 @@ function reconcileChildren(wipFiber, elements) {
   let index = 0;
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
   let prevSibling = null;
-  while (index < elements.length || oldFiber != null) {
+
+  // --- 1. 登记：把所有旧砖按 Key 存入仓库 ---
+  const oldFiberMap = new Map();
+  let tempOld = oldFiber;
+  while (tempOld) {
+    // 如果没有 key，就用 index 当 key (兜底方案)
+    const key = tempOld.props.key || tempOld.index;
+    oldFiberMap.set(key, tempOld);
+    tempOld = tempOld.sibling;
+  }
+
+  // --- 2. 对账：遍历新设计图 ---
+  while (index < elements.length) {
     const element = elements[index];
     let newFiber = null;
-    const sameType = oldFiber && element && element.type == oldFiber.type;
-    if (sameType) {
+    const key = element.props.key || index;
+    const matchedOldFiber = oldFiberMap.get(key);
+    const canReuse = matchedOldFiber && element.type === matchedOldFiber.type;
+    if (canReuse) {
       newFiber = {
-        type: oldFiber.type,
+        type: matchedOldFiber.type,
         props: element.props,
-        dom: oldFiber.dom,
+        dom: matchedOldFiber.dom,
         parent: wipFiber,
-        alternate: oldFiber,
+        alternate: matchedOldFiber,
         effectTag: "UPDATE",
       };
-    }
-    if (element && !sameType) {
-      newFiber = {
-        type: element.type,
-        props: element.props,
-        dom: null,
-        parent: wipFiber,
-        alternate: null,
-        effectTag: "PLACEMENT",
-      };
-    }
-
-    if (oldFiber && !sameType) {
-      oldFiber.effectTag = "DELETION";
-      deletions.push(oldFiber);
-    }
-    if (oldFiber) {
-      oldFiber = oldFiber.sibling;
+      oldFiberMap.delete(key);
+    } else {
+      if (element) {
+        newFiber = {
+          type: element.type,
+          props: element.props,
+          dom: null,
+          parent: wipFiber,
+          alternate: null,
+          effectTag: "PLACEMENT",
+        };
+      }
     }
     if (index === 0) {
       wipFiber.child = newFiber;
@@ -200,6 +208,10 @@ function reconcileChildren(wipFiber, elements) {
     prevSibling = newFiber;
     index++;
   }
+  oldFiberMap.forEach((fiber) => {
+    fiber.effectTag = "DELETION";
+    deletions.push(fiber);
+  });
 }
 
 function performUnitOfWork(fiber) {
